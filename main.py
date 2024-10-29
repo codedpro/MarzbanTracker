@@ -1,7 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
 from db import SessionLocal
-from bot import send_usage_to_user
+from bot import send_usage_to_user, application
 from sqlalchemy import text
 from decouple import config
 import asyncio
@@ -20,7 +20,6 @@ async def fetch_lifetime_used_traffic(db: Session):
 
 async def send_usage_to_all_telegram_users():
     db = SessionLocal()
-
     try:
         admin_data = await fetch_lifetime_used_traffic(db)
         for row in admin_data:
@@ -42,7 +41,7 @@ scheduler.add_job(send_usage_to_all_telegram_users, "interval", hours=1)
 scheduler.start()
 
 async def main():
-    from bot import application
+    await application.initialize()
     await application.start()
     await application.idle()
 
