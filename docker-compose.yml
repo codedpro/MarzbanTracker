@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  marzban_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: marzban_bot_app
+    env_file: .env
+    network_mode: host
+    depends_on:
+      - marzban
+
+volumes:
+  db_data:
