@@ -1,29 +1,26 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from sqlalchemy.orm import Session
 from db import SessionLocal
-from bot import send_message
+from bot import send_usage_to_user
 from sqlalchemy import text
+from decouple import config
+import asyncio
 
-app = FastAPI()
-
-TELEGRAM_USER_IDS = [373342220] 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+TELEGRAM_USER_IDS = list(map(int, config("TELEGRAM_USER_IDS").split(",")))
 
 async def fetch_lifetime_used_traffic(db: Session):
-    query = text("CALL GetAdminsWithLifetimeUsage(10, 0);")
-    result = db.execute(query)
-    admin_data = result.fetchall()
-    return admin_data
+    try:
+        query = text("CALL GetAdminsWithLifetimeUsage(10, 0);")
+        result = db.execute(query)
+        admin_data = result.fetchall()
+        return admin_data
+    except Exception as e:
+        print(f"Error fetching data from database: {e}")
+        return []
 
-async def send_usage_to_telegram():
+async def send_usage_to_all_telegram_users():
     db = SessionLocal()
+
     try:
         admin_data = await fetch_lifetime_used_traffic(db)
         for row in admin_data:
@@ -33,19 +30,21 @@ async def send_usage_to_telegram():
                 f"*Lifetime Used Traffic:* {lifetime_used_traffic / (1024 ** 3):.2f} GB\n"
             )
             for user_id in TELEGRAM_USER_IDS:
-                await send_message(user_id, message)
+                try:
+                    await send_usage_to_user(user_id, message)
+                except Exception as e:
+                    print(f"Failed to send message to {user_id}: {e}")
     finally:
         db.close()
 
 scheduler = AsyncIOScheduler()
-scheduler.add_job(send_usage_to_telegram, "interval", hours=1)
+scheduler.add_job(send_usage_to_all_telegram_users, "interval", hours=1)
 scheduler.start()
 
-@app.on_event("startup")
-async def startup_event():
-    await send_usage_to_telegram()
+async def main():
+    from bot import application
+    await application.start()
+    await application.idle()
 
-@app.get("/")
-async def root():
-    return {"message": "Telegram Bot with FastAPI to send admin usage"}
-
+if __name__ == "__main__":
+    asyncio.run(main())
