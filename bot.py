@@ -64,22 +64,24 @@ async def fetch_lifetime_used_traffic():
 
 async def send_usage_to_user(chat_id):
     admin_data = await fetch_lifetime_used_traffic()
-    message = ""
+    if not admin_data:
+        await send_message(chat_id, "No usage data available.")
+        return
+
     for row in admin_data:
         admin_id, username, is_sudo, created_at, telegram_id, discord_webhook, lifetime_used_traffic = row
-        message += (
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = (
             f"*Admin:* {username}\n"
-            f"*Lifetime Used Traffic:* {lifetime_used_traffic / (1024 ** 3):.2f} GB\n\n"
+            f"*Lifetime Used Traffic:* {lifetime_used_traffic / (1024 ** 3):.2f} GB\n"
+            f"*Timestamp:* {timestamp}\n"
         )
-    if message:
         try:
             await send_message(chat_id, message)
         except TelegramError as te:
             print(f"Failed to send message to {chat_id}: {te}")
         except Exception as e:
             print(f"Unexpected error sending message to {chat_id}: {e}")
-    else:
-        await send_message(chat_id, "No usage data available.")
 
 async def send_usage_to_all_telegram_users(context: ContextTypes.DEFAULT_TYPE):
     for user_id in TELEGRAM_USER_IDS:
